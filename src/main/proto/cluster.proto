@@ -1,0 +1,23 @@
+syntax = "proto3";
+package quorumwire;
+option java_package = "dev.tanish.quorum.wire";
+option java_multiple_files = true;
+enum Operation { NOOP = 0; PUT = 1; GET = 2; ERASE = 3; }
+message Command { Operation operation=1; string client_id=2; uint64 sequence=3; string key=4; string value=5; }
+message LogEntry { uint64 term=1; Command command=2; }
+message VoteRequest { uint64 term=1; uint32 candidate=2; uint64 last_index=3; uint64 last_term=4; }
+message VoteReply { uint64 term=1; bool granted=2; }
+message AppendRequest { uint64 term=1; uint32 leader=2; uint64 previous_index=3; uint64 previous_term=4; uint64 leader_commit=5; repeated LogEntry entries=6; }
+message AppendReply { uint64 term=1; bool success=2; uint64 match=3; uint64 hint=4; }
+message Envelope { uint32 group=1; uint32 from=2; oneof request { VoteRequest vote=3; AppendRequest append=4; } }
+message PeerReply { oneof response { VoteReply vote=1; AppendReply append=2; } }
+message ClientRequest { uint32 group=1; Command command=2; }
+message ClientReply { enum Code { OK=0; NOT_LEADER=1; UNKNOWN_OUTCOME=2; REJECTED=3; } Code code=1; int32 leader=2; bool found=3; string value=4; string error=5; uint64 term=6; uint64 index=7; }
+message StatusRequest {}
+message GroupStatus { uint32 group=1; string role=2; uint64 term=3; int32 leader=4; uint64 committed=5; bool healthy=6; }
+message StatusReply { repeated GroupStatus groups=1; }
+service Cluster {
+ rpc Exchange(Envelope) returns (PeerReply);
+ rpc Execute(ClientRequest) returns (ClientReply);
+ rpc Status(StatusRequest) returns (StatusReply);
+}
